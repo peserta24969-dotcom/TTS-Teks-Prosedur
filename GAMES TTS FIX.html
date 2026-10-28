@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTS Kaidah Kebahasaan Teks Prosedur - Perahu Kertas</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Fredoka & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Canvas Confetti Library -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            skyBrand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              300: '#7dd3fc',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          },
+          fontFamily: {
+            fredoka: ['Fredoka', 'sans-serif'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #075985 100%);
+      min-height: 100vh;
+      user-select: none;
+    }
+
+    /* Grid TTS styling: 10 Baris x 11 Kolom */
+    .tts-grid {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 3px;
+      background-color: #0369a1;
+      padding: 6px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+
+    .tts-cell {
+      aspect-ratio: 1 / 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #ffffff;
+      border-radius: 6px;
+      font-weight: 800;
+      transition: all 0.15s ease;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+    }
+
+    /* Kotak Kosong / Hitam */
+    .tts-cell.black {
+      background-color: rgba(7, 89, 133, 0.35);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+
+    /* Highlight Sel Sedang Aktif Input */
+    .tts-cell.active-input {
+      background-color: #fef08a !important; /* Yellow-200 */
+      outline: 3px solid #facc15;
+      z-index: 20;
+      transform: scale(1.04);
+    }
+
+    /* Highlight Word Line */
+    .tts-cell.highlighted {
+      background-color: #bae6fd !important; /* Sky-200 */
+    }
+
+    /* Status Periksa Jawaban */
+    .tts-cell.cell-correct input {
+      color: #15803d !important;
+      font-weight: 900;
+    }
+    .tts-cell.cell-correct {
+      background-color: #dcfce7 !important; /* Green-100 */
+      border: 2px solid #22c55e !important;
+    }
+
+    .tts-cell.cell-wrong input {
+      color: #b91c1c !important;
+      font-weight: 900;
+    }
+    .tts-cell.cell-wrong {
+      background-color: #fee2e2 !important; /* Red-100 */
+      border: 2px solid #ef4444 !important;
+    }
+
+    /* Huruf Bantu dari Hint (Yellow/Orange) */
+    .tts-cell.hint-revealed {
+      background-color: #fef3c7 !important; /* Amber-100 */
+      border: 2px solid #f59e0b !important; /* Amber-500 */
+    }
+    .tts-cell.hint-revealed input {
+      color: #b45309 !important; /* Amber-700 */
+      font-weight: 900;
+    }
+
+    /* Kotak Kosong saat dicek */
+    .tts-cell.cell-empty-error {
+      background-color: #fff1f2 !important;
+      border: 2px dashed #f43f5e !important;
+    }
+
+    /* Huruf Awal Kunci (Initial Locked Cell) */
+    .tts-cell.initial-letter {
+      background-color: #e0f2fe;
+    }
+    .tts-cell.initial-letter input {
+      color: #0369a1 !important;
+      font-weight: 900;
+    }
+
+    /* Badge Nomor Soal di Pojok Kiri Atas */
+    .tts-cell-num {
+      position: absolute;
+      top: 1px;
+      left: 2px;
+      font-size: 0.65rem;
+      font-weight: 900;
+      color: #0284c7;
+      background-color: #f0f9ff;
+      padding: 0px 3px;
+      border-radius: 3px;
+      line-height: 1.1;
+      pointer-events: none;
+      z-index: 10;
+      border: 1px solid #7dd3fc;
+    }
+
+    .tts-input {
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      text-transform: uppercase;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: transparent;
+      outline: none;
+      cursor: pointer;
+      color: #0f172a;
+      padding-top: 4px;
+    }
+
+    /* Animation Shake saat jawaban salah */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .animate-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #facc15;
+      border-radius: 8px;
+    }
+
+    /* Animation Floating Boat */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(3deg); }
+    }
+    .animate-float {
+      animation: float 3.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="text-slate-800 flex flex-col min-h-screen">
+
+  <!-- ==================== HALAMAN AWAL (WELCOME SCREEN) ==================== -->
+  <section id="welcomeScreen" class="flex-grow flex flex-col items-center justify-center p-4 text-center relative overflow-hidden">
+    
+    <div class="max-w-2xl w-full mx-auto bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-3xl shadow-2xl border-4 border-yellow-400 relative z-10 my-auto">
+      
+      <!-- Tag Metadata -->
+      <span class="inline-block bg-skyBrand-100 text-skyBrand-800 font-bold px-4 py-1.5 rounded-full text-xs md:text-sm tracking-wide uppercase mb-3 shadow-sm border border-skyBrand-300">
+        Bahasa Indonesia • Kelas VII SMP
+      </span>
+
+      <!-- Judul & Subjudul -->
+      <h1 class="font-fredoka text-2xl md:text-4xl font-extrabold text-skyBrand-900 leading-tight mb-1">
+        TTS KAIDAH KEBAHASAAN TEKS PROSEDUR
+      </h1>
+      <h2 class="font-fredoka text-lg md:text-2xl font-bold text-amber-500 mb-4">
+        Cara Membuat Perahu Kertas | Kelas VII F
+      </h2>
+
+      <!-- Ilustrasi Perahu Kertas SVG -->
+      <div class="w-36 h-36 mx-auto my-3 animate-float filter drop-shadow-md">
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+          <path d="M10 160 C 40 150, 60 170, 90 160 C 120 150, 140 170, 190 160 L190 185 L10 185 Z" fill="#38BDF8" opacity="0.6"/>
+          <path d="M20 170 C 50 160, 70 180, 100 170 C 130 160, 150 180, 180 170 L180 190 L20 190 Z" fill="#0284C7"/>
+          <polygon points="25,145 100,145 70,105" fill="#FDE047" stroke="#CA8A04" stroke-width="3" stroke-linejoin="round"/>
+          <polygon points="175,145 100,145 130,105" fill="#FEF08A" stroke="#CA8A04" stroke-width="3" stroke-linejoin="round"/>
+          <polygon points="100,45 65,115 100,145" fill="#FFFFFF" stroke="#0284C7" stroke-width="3" stroke-linejoin="round"/>
+          <polygon points="100,45 135,115 100,145" fill="#E0F2FE" stroke="#0284C7" stroke-width="3" stroke-linejoin="round"/>
+          <polygon points="70,105 100,145 130,105" fill="#FACC15" stroke="#CA8A04" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <!-- Petunjuk Singkat -->
+      <div class="bg-skyBrand-50 border-2 border-skyBrand-200 rounded-2xl p-4 my-5 text-left text-xs md:text-sm text-slate-700 leading-relaxed">
+        <p class="font-fredoka text-base text-skyBrand-800 font-bold mb-1.5 text-center">
+          ⛵ Selamat Datang di Game TTS Digital Teks Prosedur!
+        </p>
+        <p class="text-center font-medium">
+          Bacalah pertanyaan mendatar dan menurun dengan cermat. Guru dapat memilih nomor soal lalu mengetikkan jawaban hasil diskusi kelompok. Huruf awal setiap kata telah diisi otomatis sebagai petunjuk!
+        </p>
+      </div>
+
+      <!-- Tombol MULAI -->
+      <button onclick="startGame()" class="w-full md:w-auto px-10 py-3.5 font-fredoka text-xl font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 border-b-4 border-amber-600">
+        🚀 MULAI
+      </button>
+
+    </div>
+  </section>
+
+
+  <!-- ==================== HALAMAN GAME (GAMEPLAY) ==================== -->
+  <section id="gameScreen" class="hidden flex-grow flex flex-col p-3 md:p-5 max-w-7xl mx-auto w-full">
+    
+    <!-- Top Bar Control & Info -->
+    <header class="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 mb-4 shadow-lg border-2 border-skyBrand-300 flex flex-wrap items-center justify-between gap-3">
+      
+      <div class="flex items-center space-x-2.5">
+        <div class="w-9 h-9 bg-amber-400 rounded-xl flex items-center justify-center font-bold text-lg shadow text-slate-900">
+          ⛵
+        </div>
+        <div>
+          <h2 class="font-fredoka text-base md:text-lg font-bold text-skyBrand-900 leading-tight">
+            TTS Teks Prosedur: Perahu Kertas
+          </h2>
+          <p class="text-[11px] text-slate-500 font-semibold">Bahasa Indonesia • Kelas VII F (Grid 10x11)</p>
+        </div>
+      </div>
+
+      <!-- Status Indicator -->
+      <div class="flex items-center gap-2">
+        <div class="bg-skyBrand-50 border border-skyBrand-200 px-3 py-1 rounded-xl text-center">
+          <span class="text-[10px] text-skyBrand-600 font-bold uppercase block leading-none">Progres</span>
+          <span id="progressText" class="font-fredoka text-sm font-bold text-skyBrand-900">0 / 10 Soal Benar</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons Header -->
+      <div class="flex items-center gap-2">
+        <button onclick="checkAllAnswers()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 border border-emerald-600 shadow-md transition">
+          ✅ <span>Cek Jawaban</span>
+        </button>
+
+        <button onclick="giveHint()" class="bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 border border-amber-300 transition shadow-sm">
+          💡 <span>Hint</span>
+        </button>
+
+        <button onclick="resetGame()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1.5 rounded-xl text-xs border border-slate-300 transition">
+          🔄 <span>Ulangi</span>
+        </button>
+      </div>
+
+    </header>
+
+    <!-- Main Board & Hints Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow items-start">
+      
+      <!-- KOLOM KIRI: Papan Grid TTS (7 Cols) -->
+      <div class="lg:col-span-7 bg-white/95 backdrop-blur-md p-3.5 md:p-5 rounded-2xl shadow-xl border-2 border-skyBrand-200 flex flex-col items-center">
+        
+        <!-- Active Clue Display Bar -->
+        <div id="activeClueBanner" class="w-full bg-skyBrand-100 border-l-4 border-skyBrand-600 p-3 rounded-r-xl mb-4 flex items-center justify-between shadow-sm min-h-[58px]">
+          <div>
+            <span id="activeClueTitle" class="font-fredoka font-bold text-skyBrand-900 text-xs md:text-sm">Pilih Soal pada Grid / Daftar</span>
+            <p id="activeClueText" class="text-xs text-slate-700 font-medium italic mt-0.5">Ketik jawaban langsung di kotak TTS. Klik "Cek Jawaban" setelah selesai!</p>
+          </div>
+          <span id="activeClueDirBadge" class="bg-skyBrand-600 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg shadow whitespace-nowrap">--</span>
+        </div>
+
+        <!-- TTS Grid View -->
+        <div class="w-full flex justify-center overflow-x-auto p-1">
+          <div id="ttsBoard" class="tts-grid w-full max-w-[540px]">
+            <!-- Dynamic Grid Generation via JS -->
+          </div>
+        </div>
+
+        <!-- Tombol Besar Cek Jawaban di Bawah Grid -->
+        <button onclick="checkAllAnswers()" class="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-fredoka font-bold text-base md:text-lg rounded-xl shadow-lg border-b-4 border-emerald-700 transition hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2">
+          <span>🔍</span> CEK JAWABAN KELOMPOK
+        </button>
+
+      </div>
+
+      <!-- KOLOM KANAN: Daftar Soal Mendatar & Menurun (5 Cols) -->
+      <div class="lg:col-span-5 flex flex-col gap-3 h-full">
+        
+        <div class="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border-2 border-skyBrand-200 flex-grow flex flex-col max-h-[580px]">
+          <h3 class="font-fredoka text-base font-bold text-skyBrand-900 mb-2.5 flex items-center gap-2 border-b pb-2">
+            <span>📝</span> DAFTAR PERTANYAAN SOAL
+          </h3>
+
+          <div class="overflow-y-auto flex-grow pr-1 space-y-4">
+            
+            <!-- MENDATAR -->
+            <div>
+              <div class="sticky top-0 bg-skyBrand-600 text-white font-fredoka px-3 py-1 rounded-lg text-xs font-bold shadow mb-2">
+                ➡️ MENDATAR
+              </div>
+              <div id="acrossList" class="space-y-2">
+                <!-- Dynamic Content -->
+              </div>
+            </div>
+
+            <!-- MENURUN -->
+            <div>
+              <div class="sticky top-0 bg-amber-500 text-white font-fredoka px-3 py-1 rounded-lg text-xs font-bold shadow mb-2">
+                ⬇️ MENURUN
+              </div>
+              <div id="downList" class="space-y-2">
+                <!-- Dynamic Content -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ==================== MODAL FEEDBACK / MESSAGES ==================== -->
+  <div id="modalOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modalBox" class="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border-4 border-amber-400 transform transition-all scale-95 opacity-0">
+      <div id="modalIcon" class="text-5xl mb-2">📢</div>
+      <h3 id="modalTitle" class="font-fredoka text-xl font-bold text-slate-800 mb-1">Pesan</h3>
+      <div id="modalMessage" class="text-slate-600 font-semibold mb-5 text-xs md:text-sm leading-relaxed">Deskripsi pesan.</div>
+      <button onclick="closeModal()" class="w-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-fredoka text-base font-bold py-2.5 rounded-xl shadow border-b-4 border-amber-600 transition">
+        OK, Mengerti
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ==================== MODAL WIN (KEMENANGAN) ==================== -->
+  <div id="winModal" class="fixed inset-0 bg-skyBrand-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-7 max-w-md w-full text-center shadow-2xl border-4 border-amber-400 relative overflow-hidden">
+      
+      <div class="text-6xl mb-3 animate-bounce">🏆</div>
+      
+      <h2 class="font-fredoka text-2xl md:text-3xl font-black text-skyBrand-900 mb-1">
+        SELAMAT!
+      </h2>
+      <p class="font-fredoka text-base md:text-lg font-bold text-amber-500 mb-4">
+        SEMUA KOTAK TTS BERHASIL TERISI DENGAN BENAR!
+      </p>
+
+      <p class="text-slate-600 text-sm font-semibold mb-6">
+        Pemahaman seluruh siswa tentang kaidah kebahasaan teks prosedur perahu kertas sangat luar biasa!
+      </p>
+
+      <button onclick="restartGame()" class="w-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-fredoka text-xl font-bold py-3 rounded-2xl shadow-xl border-b-4 border-amber-600 transition hover:scale-105">
+        🔄 MAIN LAGI
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="text-center py-2 text-white/70 text-[11px] font-semibold">
+    TTS Digital Pembelajaran Bahasa Indonesia Kelas VII SMP • Teks Prosedur
+  </footer>
+
+
+  <!-- ==================== JAVASCRIPT GAME LOGIC ==================== -->
+  <script>
+    /**
+     * DATA KOTAK TTS PRESISI (GRID 10 BARIS x 11 KOLOM):
+     */
+    const QUESTIONS = [
+      {
+        num: 1,
+        dir: 'down',
+        row: 0,
+        col: 0,
+        answer: 'TEKAN',
+        length: 5,
+        clue: 'Kata kerja perintah agar garis lipatan tajam: "___ lipatan kertas dengan jari tangan."'
+      },
+      {
+        num: 2,
+        dir: 'down',
+        row: 0,
+        col: 2,
+        answer: 'LIMA',
+        length: 4,
+        clue: 'Kata bilangan: "Siapkan ___ lembar kertas lipat berwarna."'
+      },
+      {
+        num: 3,
+        dir: 'down',
+        row: 0,
+        col: 4,
+        answer: 'KEDUA',
+        length: 5,
+        clue: 'Kata bilangan: "Tekuk ___ ujung kertas ke arah dalam."'
+      },
+      {
+        num: 4,
+        dir: 'down',
+        row: 1,
+        col: 6,
+        answer: 'RAPI',
+        length: 4,
+        clue: 'Kata keterangan cara agar hasil lipatan presisi: "Pastikan setiap sudut terlipat dengan ___."'
+      },
+      {
+        num: 5,
+        dir: 'across',
+        row: 2,
+        col: 0,
+        answer: 'KEMUDIAN',
+        length: 8,
+        clue: 'Konjungsi temporal penanda langkah berikutnya: "Lipat kertas menjadi dua bagian, ___ lipat kedua sudut atas ke tengah."'
+      },
+      {
+        num: 6,
+        dir: 'across',
+        row: 4,
+        col: 3,
+        answer: 'TARIK',
+        length: 5,
+        clue: 'Kata kerja perintah untuk melebarkan sayap kapal: "___ kedua sudut luar ke arah samping."'
+      },
+      {
+        num: 7,
+        dir: 'down',
+        row: 4,
+        col: 7,
+        answer: 'KETIGA',
+        length: 6,
+        clue: 'Kata bilangan tingkat: "Langkah ___ adalah melipat sudut atas ke arah tengah."'
+      },
+      {
+        num: 8,
+        dir: 'down',
+        row: 6,
+        col: 9,
+        answer: 'KATA',
+        length: 4,
+        clue: 'Lipat, tekan, dan tarik termasuk ... kerja perintah dalam teks prosedur.'
+      },
+      {
+        num: 9,
+        dir: 'across',
+        row: 7,
+        col: 6,
+        answer: 'LIPAT',
+        length: 5,
+        clue: 'Kata kerja perintah untuk langkah awal: "___ kertas persegi menjadi dua bagian sama besar."'
+      },
+      {
+        num: 10,
+        dir: 'across',
+        row: 9,
+        col: 3,
+        answer: 'PERLAHAN',
+        length: 8,
+        clue: 'Kata keterangan cara agar kertas tidak sobek: "Tarik kedua sudut luar dengan ___."'
+      }
+    ];
+
+    const ROWS = 10;
+    const COLS = 11;
+
+    let gridData = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+    let currentSelectedQuestion = null;
+
+    // Web Audio Sound FX Generator
+    function playSound(type) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'click') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(550, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.06);
+        } else if (type === 'success') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.25);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.25);
+        } else if (type === 'wrong') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.2);
+        } else if (type === 'win') {
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, i) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.frequency.value = freq;
+            g.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.1);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.1 + 0.35);
+            o.start(ctx.currentTime + i * 0.1);
+            o.stop(ctx.currentTime + i * 0.1 + 0.35);
+          });
+        }
+      } catch (e) {}
+    }
+
+    // Inisialisasi Peta Grid
+    function initGridData() {
+      gridData = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+
+      QUESTIONS.forEach(q => {
+        for (let i = 0; i < q.length; i++) {
+          const r = q.dir === 'across' ? q.row : q.row + i;
+          const c = q.dir === 'across' ? q.col + i : q.col;
+
+          if (!gridData[r][c]) {
+            gridData[r][c] = {
+              letter: q.answer[i],
+              number: i === 0 ? q.num : null,
+              questions: [q],
+              isInitial: (i === 0)
+            };
+          } else {
+            // Persilangan huruf
+            if (i === 0) gridData[r][c].number = q.num;
+            gridData[r][c].questions.push(q);
+            if (i === 0) gridData[r][c].isInitial = true;
+          }
+        }
+      });
+    }
+
+    // Render Papan Grid TTS
+    function renderBoard() {
+      const boardEl = document.getElementById('ttsBoard');
+      boardEl.innerHTML = '';
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cellData = gridData[r][c];
+          const cellDiv = document.createElement('div');
+          cellDiv.className = 'tts-cell';
+          cellDiv.dataset.row = r;
+          cellDiv.dataset.col = c;
+
+          if (!cellData) {
+            cellDiv.classList.add('black');
+          } else {
+            // Nomor Soal di Pojok Kiri Atas Kotak Awal
+            if (cellData.number) {
+              const numSpan = document.createElement('span');
+              numSpan.className = 'tts-cell-num';
+              numSpan.innerText = cellData.number;
+              cellDiv.appendChild(numSpan);
+            }
+
+            // Input Element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.maxLength = 1;
+            input.className = 'tts-input';
+            input.dataset.row = r;
+            input.dataset.col = c;
+
+            // Jika sel ini merupakan Huruf Awal Kunci, isi otomatis & lock
+            if (cellData.isInitial) {
+              cellDiv.classList.add('initial-letter');
+              input.value = cellData.letter;
+              input.dataset.isInitialLocked = "true";
+              input.readOnly = true;
+            }
+
+            // Event Listeners
+            input.addEventListener('click', () => onCellClicked(r, c));
+            input.addEventListener('input', (e) => handleCellInput(e, r, c));
+            input.addEventListener('keydown', (e) => handleKeyDown(e, r, c));
+
+            cellDiv.appendChild(input);
+          }
+
+          boardEl.appendChild(cellDiv);
+        }
+      }
+    }
+
+    // Render List Pertanyaan Mendatar & Menurun
+    function renderQuestionsList() {
+      const acrossList = document.getElementById('acrossList');
+      const downList = document.getElementById('downList');
+      acrossList.innerHTML = '';
+      downList.innerHTML = '';
+
+      const sortedQ = [...QUESTIONS].sort((a, b) => a.num - b.num);
+
+      sortedQ.forEach(q => {
+        const card = document.createElement('div');
+        card.id = `q-card-${q.num}`;
+        card.className = `p-3 rounded-xl border-2 transition cursor-pointer bg-white hover:border-skyBrand-400 hover:shadow-sm flex flex-col gap-1`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-fredoka font-bold text-skyBrand-900 text-xs flex items-center gap-1.5">
+              <span class="bg-skyBrand-600 text-white rounded px-1.5 py-0.5 text-[10px] font-extrabold">NO. ${q.num}</span>
+              <span>${q.dir === 'across' ? 'Mendatar' : 'Menurun'}</span>
+            </span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+              ${q.length} Huruf
+            </span>
+          </div>
+          <p class="text-xs text-slate-700 font-medium leading-relaxed">${q.clue}</p>
+          <div class="text-[11px] font-bold text-skyBrand-700 mt-0.5">
+            Huruf Awal: <span class="text-amber-600 font-black">${q.answer[0]}</span>
+          </div>
+        `;
+
+        card.onclick = () => selectQuestion(q);
+
+        if (q.dir === 'across') {
+          acrossList.appendChild(card);
+        } else {
+          downList.appendChild(card);
+        }
+      });
+    }
+
+    // Logic Klik Sel Grid
+    function onCellClicked(r, c) {
+      const cellData = gridData[r][c];
+      if (!cellData) return;
+
+      // Toggle Direction jika mengklik sel persilangan yang sama
+      if (currentSelectedQuestion && cellData.questions.length > 1) {
+        const containsCurrent = cellData.questions.includes(currentSelectedQuestion);
+        if (containsCurrent) {
+          const otherQ = cellData.questions.find(q => q !== currentSelectedQuestion);
+          if (otherQ) {
+            selectQuestion(otherQ);
+            return;
+          }
+        }
+      }
+
+      selectQuestion(cellData.questions[0]);
+    }
+
+    // Pilih Soal Active
+    function selectQuestion(q) {
+      currentSelectedQuestion = q;
+      playSound('click');
+
+      // Update Banner Bar Active Question
+      document.getElementById('activeClueTitle').innerText = `SOAL NO. ${q.num} (${q.dir === 'across' ? 'MENDATAR' : 'MENURUN'}) - ${q.length} HURUF`;
+      document.getElementById('activeClueText').innerText = `"${q.clue}"`;
+      document.getElementById('activeClueDirBadge').innerText = q.dir === 'across' ? '➡️ MENDATAR' : '⬇️ MENURUN';
+      document.getElementById('activeClueDirBadge').className = `font-bold text-[11px] px-2.5 py-1 rounded-lg text-white shadow ${q.dir === 'across' ? 'bg-skyBrand-600' : 'bg-amber-600'}`;
+
+      // Highlighting Item Card
+      document.querySelectorAll('#acrossList > div, #downList > div').forEach(el => {
+        el.classList.remove('border-skyBrand-500', 'bg-skyBrand-50', 'ring-2', 'ring-skyBrand-300');
+      });
+      const activeCard = document.getElementById(`q-card-${q.num}`);
+      if (activeCard) {
+        activeCard.classList.add('border-skyBrand-500', 'bg-skyBrand-50', 'ring-2', 'ring-skyBrand-300');
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      // Highlight Grid Cells
+      highlightQuestionCells(q);
+
+      // Focus ke kotak pertama yang bukan locked/terisi jika memungkinkan
+      for (let i = 0; i < q.length; i++) {
+        const r = q.dir === 'across' ? q.row : q.row + i;
+        const c = q.dir === 'across' ? q.col + i : q.col;
+        const input = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+        if (input && !input.dataset.isInitialLocked && !input.value) {
+          input.focus();
+          break;
+        }
+      }
+    }
+
+    function highlightQuestionCells(q) {
+      document.querySelectorAll('.tts-cell').forEach(el => {
+        el.classList.remove('highlighted', 'active-input');
+      });
+
+      for (let i = 0; i < q.length; i++) {
+        const r = q.dir === 'across' ? q.row : q.row + i;
+        const c = q.dir === 'across' ? q.col + i : q.col;
+        const cell = document.querySelector(`.tts-cell[data-row="${r}"][data-col="${c}"]`);
+        if (cell) cell.classList.add('highlighted');
+      }
+
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.classList.contains('tts-input')) {
+        const parentDiv = activeEl.parentElement;
+        if (parentDiv) parentDiv.classList.add('active-input');
+      }
+    }
+
+    // Reset status warna netral ketika mengetik ulang
+    function clearCellValidationStyles(r, c) {
+      const cell = document.querySelector(`.tts-cell[data-row="${r}"][data-col="${c}"]`);
+      if (cell) {
+        cell.classList.remove('cell-correct', 'cell-wrong', 'cell-empty-error');
+      }
+    }
+
+    // Handling Typing Input Langsung di Grid
+    function handleCellInput(e, r, c) {
+      const input = e.target;
+      const val = input.value.toUpperCase();
+      input.value = val;
+
+      clearCellValidationStyles(r, c);
+
+      if (val && currentSelectedQuestion) {
+        let nextR = r;
+        let nextC = c;
+        if (currentSelectedQuestion.dir === 'across') {
+          nextC = c + 1;
+        } else {
+          nextR = r + 1;
+        }
+
+        const nextInput = document.querySelector(`input[data-row="${nextR}"][data-col="${nextC}"]`);
+        if (nextInput) {
+          nextInput.focus();
+          const pDiv = nextInput.parentElement;
+          if (pDiv) pDiv.classList.add('active-input');
+        }
+      }
+    }
+
+    // Keyboard Navigation pada Grid
+    function handleKeyDown(e, r, c) {
+      if (!currentSelectedQuestion) return;
+
+      if (e.key === 'Backspace') {
+        const input = e.target;
+        if (input.dataset.isInitialLocked || input.dataset.isHintLocked) {
+          e.preventDefault();
+        } else {
+          clearCellValidationStyles(r, c);
+        }
+
+        if (!input.value || input.dataset.isInitialLocked || input.dataset.isHintLocked) {
+          let prevR = r;
+          let prevC = c;
+          if (currentSelectedQuestion.dir === 'across') {
+            prevC = c - 1;
+          } else {
+            prevR = r - 1;
+          }
+          const prevInput = document.querySelector(`input[data-row="${prevR}"][data-col="${prevC}"]`);
+          if (prevInput) {
+            prevInput.focus();
+          }
+        }
+      } else if (e.key === 'ArrowRight') {
+        const nextInput = document.querySelector(`input[data-row="${r}"][data-col="${c+1}"]`);
+        if (nextInput) nextInput.focus();
+      } else if (e.key === 'ArrowLeft') {
+        const prevInput = document.querySelector(`input[data-row="${r}"][data-col="${c-1}"]`);
+        if (prevInput) prevInput.focus();
+      } else if (e.key === 'ArrowDown') {
+        const nextInput = document.querySelector(`input[data-row="${r+1}"][data-col="${c}"]`);
+        if (nextInput) nextInput.focus();
+      } else if (e.key === 'ArrowUp') {
+        const prevInput = document.querySelector(`input[data-row="${r-1}"][data-col="${c}"]`);
+        if (prevInput) prevInput.focus();
+      }
+    }
+
+    // PROSES CEK JAWABAN (Tombol "Cek Jawaban")
+    function checkAllAnswers() {
+      let correctNumCount = 0;
+      let totalQuestions = QUESTIONS.length;
+
+      // Reset style status dahulu (kecuali hint-revealed jika belum dicek, tapi saat dicek hint akan jadi green)
+      document.querySelectorAll('.tts-cell').forEach(cell => {
+        if (!cell.classList.contains('black')) {
+          cell.classList.remove('cell-correct', 'cell-wrong', 'cell-empty-error', 'hint-revealed');
+        }
+      });
+
+      // 1. Pengecekan per-huruf pada sel grid
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cellData = gridData[r][c];
+          if (cellData) {
+            const cellEl = document.querySelector(`.tts-cell[data-row="${r}"][data-col="${c}"]`);
+            const inputEl = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+            const currentVal = inputEl.value.trim().toUpperCase();
+
+            if (!currentVal) {
+              cellEl.classList.add('cell-empty-error');
+            } else if (currentVal === cellData.letter) {
+              cellEl.classList.add('cell-correct');
+            } else {
+              cellEl.classList.add('cell-wrong');
+            }
+          }
+        }
+      }
+
+      // 2. Hitung jumlah nomor soal yang benar utuh
+      QUESTIONS.forEach(q => {
+        let isQuestionFullyCorrect = true;
+        for (let i = 0; i < q.length; i++) {
+          const r = q.dir === 'across' ? q.row : q.row + i;
+          const c = q.dir === 'across' ? q.col + i : q.col;
+          const input = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+
+          if (!input || input.value.trim().toUpperCase() !== q.answer[i]) {
+            isQuestionFullyCorrect = false;
+            break;
+          }
+        }
+
+        if (isQuestionFullyCorrect) {
+          correctNumCount++;
+          markCardSolved(q.num, true);
+        } else {
+          markCardSolved(q.num, false);
+        }
+      });
+
+      document.getElementById('progressText').innerText = `${correctNumCount} / ${totalQuestions} Soal Benar`;
+
+      if (correctNumCount === totalQuestions) {
+        playSound('win');
+        triggerConfetti();
+        document.getElementById('winModal').classList.remove('hidden');
+      } else {
+        playSound('wrong');
+        showModal(
+          'HASIL PENGECEKAN JAWABAN',
+          `Hasil periksa: <strong>${correctNumCount} dari ${totalQuestions} nomor</strong> dijawab secara tepat.<br><br>` +
+          `<span class="text-emerald-700 font-bold">🟢 Kotak Hijau:</span> Huruf Benar<br>` +
+          `<span class="text-red-700 font-bold">🔴 Kotak Merah:</span> Huruf Salah<br>` +
+          `<span class="text-rose-600 font-bold">☐ Garis Merah Putus-putus:</span> Kotak Kosong<br><br>` +
+          `Silakan perbaiki kotak yang salah atau belum terisi!`,
+          correctNumCount > 5 ? '📊' : '✏️'
+        );
+      }
+    }
+
+    // Tombol Hint: Membuka 1 huruf yang belum terisi pada nomor yang sedang aktif
+    function giveHint() {
+      if (!currentSelectedQuestion) {
+        showModal('PETUNJUK HINT', 'Pilih nomor dulu!', '💡');
+        return;
+      }
+
+      const q = currentSelectedQuestion;
+      let targetCell = null;
+
+      // Cari kotak pertama (dari kiri ke kanan / atas ke bawah) yang masih kosong (belum diisi)
+      for (let i = 0; i < q.length; i++) {
+        const r = q.dir === 'across' ? q.row : q.row + i;
+        const c = q.dir === 'across' ? q.col + i : q.col;
+        const input = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+
+        if (input && !input.value.trim()) {
+          targetCell = { index: i, r, c, char: q.answer[i], input };
+          break; // Temukan yang paling awal (kiri/atas) yang masih kosong
+        }
+      }
+
+      if (targetCell) {
+        targetCell.input.value = targetCell.char;
+        targetCell.input.readOnly = true;
+        targetCell.input.dataset.isHintLocked = "true";
+
+        const cellDiv = targetCell.input.parentElement;
+        if (cellDiv) {
+          cellDiv.classList.remove('cell-correct', 'cell-wrong', 'cell-empty-error');
+          cellDiv.classList.add('hint-revealed');
+        }
+
+        playSound('click');
+      } else {
+        showModal('PETUNJUK HINT', `Seluruh kotak pada Soal No. ${q.num} (${q.dir === 'across' ? 'Mendatar' : 'Menurun'}) sudah terisi!`, 'ℹ️');
+      }
+    }
+
+    function markCardSolved(num, isCorrect) {
+      const card = document.getElementById(`q-card-${num}`);
+      if (!card) return;
+
+      let tag = card.querySelector('.status-tag');
+      if (!tag) {
+        tag = document.createElement('span');
+        tag.className = 'status-tag text-[10px] font-bold mt-0.5 block';
+        card.appendChild(tag);
+      }
+
+      if (isCorrect) {
+        card.classList.add('bg-green-50', 'border-green-400');
+        card.classList.remove('bg-red-50', 'border-red-300');
+        tag.className = 'status-tag text-[10px] font-bold text-green-600 mt-0.5 block';
+        tag.innerText = '✓ Selesai & Benar';
+      } else {
+        card.classList.remove('bg-green-50', 'border-green-400');
+        tag.className = 'status-tag text-[10px] font-bold text-red-500 mt-0.5 block';
+        tag.innerText = '✕ Belum Tepat';
+      }
+    }
+
+    // System Modals
+    function showModal(title, msg, icon = '📢') {
+      document.getElementById('modalTitle').innerHTML = title;
+      document.getElementById('modalMessage').innerHTML = msg;
+      document.getElementById('modalIcon').innerText = icon;
+
+      const overlay = document.getElementById('modalOverlay');
+      const box = document.getElementById('modalBox');
+
+      overlay.classList.remove('hidden');
+      setTimeout(() => {
+        box.classList.remove('scale-95', 'opacity-0');
+        box.classList.add('scale-100', 'opacity-100');
+      }, 10);
+    }
+
+    function closeModal() {
+      const box = document.getElementById('modalBox');
+      const overlay = document.getElementById('modalOverlay');
+
+      box.classList.remove('scale-100', 'opacity-100');
+      box.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+      }, 150);
+    }
+
+    function triggerConfetti() {
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 130,
+          spread: 85,
+          origin: { y: 0.6 }
+        });
+      }
+    }
+
+    function startGame() {
+      playSound('click');
+      document.getElementById('welcomeScreen').classList.add('hidden');
+      document.getElementById('gameScreen').classList.remove('hidden');
+      selectQuestion(QUESTIONS[0]);
+    }
+
+    function resetGame() {
+      if (confirm('Apakah Anda yakin ingin mengulangi seluruh permainan? Progres jawaban akan direset.')) {
+        restartGame();
+      }
+    }
+
+    function restartGame() {
+      document.getElementById('progressText').innerText = '0 / 10 Soal Benar';
+      document.getElementById('winModal').classList.add('hidden');
+
+      initGridData();
+      renderBoard();
+      renderQuestionsList();
+
+      selectQuestion(QUESTIONS[0]);
+    }
+
+    window.onload = function() {
+      initGridData();
+      renderBoard();
+      renderQuestionsList();
+    };
+  </script>
+
+</body>
+</html>
